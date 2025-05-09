@@ -20,6 +20,12 @@ export class AuthService {
         const match = await bcrypt.compare(loginDto.password, user.passwordHash);
         if (!match) throw new UnauthorizedException('Invalid password');
 
+        // Update lastLoginAt timestamp
+        await this.usersService.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date() }
+        });
+
         const payload = { sub: user.id, email: user.email, role: user.role };
         return { access_token: await this.jwtService.signAsync(payload) };
     }

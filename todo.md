@@ -1,0 +1,3 @@
+- Commentaires
+- Promotion
+- Paiement en ligne (Wave)
