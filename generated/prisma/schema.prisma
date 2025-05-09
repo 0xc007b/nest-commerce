@@ -1,0 +1,299 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- ENUMS ---
+enum Role {
+  ADMIN
+  USER
+}
+
+enum AddressType {
+  SHIPPING
+  BILLING
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+// --- MODELS ---
+model User {
+  id           String    @id @default(uuid())
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         Role      @default(USER)
+  phoneNumber  String?   @map("phone_number")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  addresses     Address[]
+  reviews       Review[]
+  orders        Order[]
+  notifications Notification[]
+  cart          Cart? // Un utilisateur peut avoir un panier actif
+}
+
+model Address {
+  id                Int         @id @default(autoincrement())
+  userId            String      @map("user_id")
+  streetAddress     String      @map("street_address")
+  city              String
+  postalCode        String      @map("postal_code")
+  country           String
+  addressType       AddressType @default(SHIPPING) @map("address_type")
+  isDefaultShipping Boolean     @default(false) @map("is_default_shipping")
+  isDefaultBilling  Boolean     @default(false) @map("is_default_billing")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shippingOrders Order[] @relation("ShippingAddress")
+  billingOrders  Order[] @relation("BillingAddress")
+}
+
+model Category {
+  id               Int      @id @default(autoincrement())
+  name             String   @unique
+  slug             String   @unique
+  description      String?
+  imageUrl         String?  @map("image_url")
+  parentCategoryId Int?     @map("parent_category_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  parentCategory Category?  @relation("SubCategories", fields: [parentCategoryId], references: [id], onDelete: SetNull)
+  subCategories  Category[] @relation("SubCategories")
+  products       Product[]
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique
+  description String
+  brand       String?
+  basePrice   Float    @map("base_price") // Pour SQLite, c'est REAL. Considerer stocker en centimes (Int) pour la precision.
+  isActive    Boolean  @default(true) @map("is_active")
+  isFeatured  Boolean  @default(false) @map("is_featured")
+  categoryId  Int      @map("category_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  variants ProductVariant[]
+  images   ProductImage[]
+  reviews  Review[]
+}
+
+model ProductVariant {
+  id            Int      @id @default(autoincrement())
+  productId     Int      @map("product_id")
+  sku           String   @unique
+  size          String?
+  color         String?
+  material      String?
+  priceOverride Float?   @map("price_override") // Si non null, surcharge basePrice du produit
+  stockQuantity Int      @default(0) @map("stock_quantity")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@unique([productId, size, color, material], name: "unique_variant_combination") // Assure l'unicité basée sur ces attributs pour un produit donné
+}
+
+model ProductImage {
+  id        Int      @id @default(autoincrement())
+  productId Int      @map("product_id")
+  imageUrl  String   @map("image_url")
+  altText   String?  @map("alt_text")
+  isPrimary Boolean  @default(false) @map("is_primary")
+  order     Int      @default(0) // Pour l'ordre d'affichage
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  userId     String   @map("user_id")
+  productId  Int      @map("product_id")
+  rating     Int // Validation (1-5) à faire au niveau applicatif
+  comment    String?
+  isApproved Boolean  @default(false) @map("is_approved")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  images  ReviewImage[]
+
+  @@unique([userId, productId]) // Un utilisateur ne peut laisser qu'un avis par produit
+}
+
+model ReviewImage {
+  id        Int      @id @default(autoincrement())
+  reviewId  Int      @map("review_id")
+  imageUrl  String   @map("image_url")
+  altText   String?  @map("alt_text")
+  order     Int      @default(0) // Pour l'ordre d'affichage
+  createdAt DateTime @default(now()) @map("created_at")
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  userId    String?  @unique @map("user_id") // Un utilisateur a un seul panier actif
+  sessionId String?  @unique @map("session_id") // Pour les utilisateurs non connectés
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+  // Note: La logique pour s'assurer que userId OU sessionId est présent sera dans le service.
+}
+
+model CartItem {
+  id               Int      @id @default(autoincrement())
+  cartId           Int      @map("cart_id")
+  productVariantId Int      @map("product_variant_id")
+  quantity         Int      @default(1)
+  addedAt          DateTime @default(now()) @map("added_at")
+
+  cart           Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade) // S'assurer que la variante existe toujours
+
+  @@unique([cartId, productVariantId])
+}
+
+model Order {
+  id                Int         @id @default(autoincrement())
+  userId            String      @map("user_id")
+  orderDate         DateTime    @default(now()) @map("order_date")
+  status            OrderStatus @default(PENDING_PAYMENT)
+  totalAmount       Float       @map("total_amount")
+  shippingAddressId Int         @map("shipping_address_id")
+  billingAddressId  Int?        @map("billing_address_id")
+  shippingMethod    String?     @map("shipping_method")
+  shippingCost      Float       @default(0) @map("shipping_cost")
+  trackingNumber    String?     @map("tracking_number")
+  notes             String?
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  user              User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  shippingAddress   Address          @relation("ShippingAddress", fields: [shippingAddressId], references: [id], onDelete: Restrict)
+  billingAddress    Address?         @relation("BillingAddress", fields: [billingAddressId], references: [id], onDelete: Restrict)
+  items             OrderItem[]
+  payment           Payment?
+  promotionsApplied OrderPromotion[]
+}
+
+model OrderItem {
+  id               Int      @id @default(autoincrement())
+  orderId          Int      @map("order_id")
+  productVariantId Int      @map("product_variant_id")
+  quantity         Int
+  pricePerUnit     Float    @map("price_per_unit") // Prix au moment de la commande
+  subtotal         Float // quantity * pricePerUnit
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Restrict) // Le produit peut être désactivé mais la commande reste
+}
+
+model Payment {
+  id              Int           @id @default(autoincrement())
+  orderId         Int           @unique @map("order_id")
+  paymentMethod   String        @map("payment_method")
+  transactionId   String        @unique @map("transaction_id")
+  amount          Float
+  status          PaymentStatus @default(PENDING)
+  paymentDate     DateTime      @default(now()) @map("payment_date")
+  gatewayResponse Json?         @map("gateway_response") // Stocké comme TEXT dans SQLite
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id                Int       @id @default(autoincrement())
+  userId            String    @map("user_id") // Destinataire
+  type              String // Ex: "ORDER_CONFIRMATION", "LOW_STOCK_ADMIN"
+  message           String
+  relatedEntityType String?   @map("related_entity_type") // Ex: "order", "product"
+  relatedEntityId   Int?      @map("related_entity_id") // ID de l'entité liée
+  isRead            Boolean   @default(false) @map("is_read")
+  readAt            DateTime? @map("read_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([relatedEntityType, relatedEntityId]) // Pour rechercher les notifs liées à une entité
+}
+
+model Promotion {
+  id             Int          @id @default(autoincrement())
+  code           String       @unique
+  description    String?
+  discountType   DiscountType @map("discount_type")
+  discountValue  Float        @map("discount_value") // Valeur % (ex: 0.1 pour 10%) ou montant fixe
+  startDate      DateTime     @map("start_date")
+  endDate        DateTime?    @map("end_date")
+  maxUses        Int?         @map("max_uses")
+  usesPerUser    Int?         @default(1) @map("uses_per_user")
+  currentUses    Int          @default(0) @map("current_uses")
+  isActive       Boolean      @default(true) @map("is_active")
+  minOrderAmount Float?       @map("min_order_amount")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  ordersApplied OrderPromotion[]
+}
+
+model OrderPromotion {
+  // Table de jointure explicite pour Many-to-Many entre Order et Promotion
+  id              Int   @id @default(autoincrement())
+  orderId         Int   @map("order_id")
+  promotionId     Int   @map("promotion_id")
+  discountApplied Float @map("discount_applied") // Montant de la réduction effectivement appliquée pour cette promo sur cette commande
+
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Restrict) // La promotion peut être désactivée mais le lien reste
+
+  @@unique([orderId, promotionId])
+  @@index([orderId])
+  @@index([promotionId])
+}
