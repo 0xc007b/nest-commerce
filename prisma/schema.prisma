@@ -42,23 +42,27 @@ enum DiscountType {
 
 // --- MODELS ---
 model User {
-  id           String    @id @default(uuid())
-  firstName    String    @map("first_name")
-  lastName     String    @map("last_name")
-  email        String    @unique
-  passwordHash String    @map("password_hash")
-  role         Role      @default(USER)
-  phoneNumber  String?   @map("phone_number")
-  isActive     Boolean   @default(true) @map("is_active")
-  lastLoginAt  DateTime? @map("last_login_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  id                String    @id @default(uuid())
+  firstName         String    @map("first_name")
+  lastName          String    @map("last_name")
+  email             String    @unique
+  passwordHash      String    @map("password_hash")
+  role              Role      @default(USER)
+  phoneNumber       String?   @map("phone_number")
+  isActive          Boolean   @default(true) @map("is_active")
+  isEmailVerified   Boolean   @default(false) @map("is_email_verified")
+  emailVerifiedAt   DateTime? @map("email_verified_at")
+  lastLoginAt       DateTime? @map("last_login_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
-  addresses     Address[]
-  reviews       Review[]
-  orders        Order[]
-  notifications Notification[]
-  cart          Cart? // Un utilisateur peut avoir un panier actif
+  addresses         Address[]
+  reviews           Review[]
+  orders            Order[]
+  notifications     Notification[]
+  cart              Cart? // Un utilisateur peut avoir un panier actif
+  passwordResets    PasswordReset[]
+  emailVerification EmailVerification?
 }
 
 model Address {
@@ -296,4 +300,29 @@ model OrderPromotion {
   @@unique([orderId, promotionId])
   @@index([orderId])
   @@index([promotionId])
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  token     String    @unique
+  expires   DateTime
+  createdAt DateTime  @default(now()) @map("created_at")
+  usedAt    DateTime? @map("used_at")
+  
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+}
+
+model EmailVerification {
+  id        String    @id @default(uuid())
+  userId    String    @unique @map("user_id")
+  token     String    @unique
+  expires   DateTime
+  createdAt DateTime  @default(now()) @map("created_at")
+  
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
 }

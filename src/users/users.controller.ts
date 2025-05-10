@@ -22,7 +22,7 @@ import { RolesGuard } from 'src/guards/roles.guard';
 @Roles(Role.ADMIN)
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   @Post()
   async create(@Body() createUserDto: CreateUserDto) {
@@ -38,7 +38,13 @@ export class UsersController {
   }
 
   @Get()
-  findAll(@Param('skip') skip?: number, @Param('take') take?: number, @Param('cursor') cursor?: Prisma.UserWhereUniqueInput, @Param('where') where?: Prisma.UserWhereInput, @Param('orderBy') orderBy?: Prisma.UserOrderByWithRelationInput) {
+  findAll(
+    @Param('skip') skip?: number,
+    @Param('take') take?: number,
+    @Param('cursor') cursor?: Prisma.UserWhereUniqueInput,
+    @Param('where') where?: Prisma.UserWhereInput,
+    @Param('orderBy') orderBy?: Prisma.UserOrderByWithRelationInput,
+  ) {
     const params: {
       skip?: number;
       take?: number;
@@ -56,7 +62,10 @@ export class UsersController {
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    const user = await this.usersService.update({ where: { id }, data: updateUserDto });
+    const user = await this.usersService.update({
+      where: { id },
+      data: updateUserDto,
+    });
     return user;
   }
 
