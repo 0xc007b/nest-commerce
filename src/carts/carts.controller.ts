@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { CartsService } from './carts.service';
 import { CreateCartItemDto } from './dto/create-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
@@ -12,7 +22,7 @@ export class CartsController {
 
   @Get()
   async getCart(@Req() req) {
-    const userId = req.user.sub;
+    const userId = req.user.sub as string;
     return this.cartsService.getOrCreateCart(userId);
   }
 
@@ -21,11 +31,8 @@ export class CartsController {
     @Body() createCartItemDto: CreateCartItemDto,
     @Req() req,
   ) {
-    const userId = req.user.sub;
-    return this.cartsService.addItemToCart(
-      createCartItemDto,
-      userId,
-    );
+    const userId = req.user.sub as string;
+    return this.cartsService.addItemToCart(createCartItemDto, userId);
   }
 
   @Patch('items/:id')
@@ -34,29 +41,19 @@ export class CartsController {
     @Body() updateCartItemDto: UpdateCartItemDto,
     @Req() req,
   ) {
-    const userId = req.user.sub;
-    return this.cartsService.updateCartItem(
-      +id,
-      updateCartItemDto,
-      userId,
-    );
+    const userId = req.user.sub as string;
+    return this.cartsService.updateCartItem(+id, updateCartItemDto, userId);
   }
 
   @Delete('items/:id')
-  async removeCartItem(
-    @Param('id') id: string,
-    @Req() req,
-  ) {
-    const userId = req.user.sub;
-    return this.cartsService.removeCartItem(
-      +id,
-      userId,
-    );
+  async removeCartItem(@Param('id') id: string, @Req() req) {
+    const userId = req.user.sub as string;
+    return this.cartsService.removeCartItem(+id, userId);
   }
 
   @Delete()
   async clearCart(@Req() req) {
-    const userId = req.user.sub;
+    const userId = req.user.sub as string;
     return this.cartsService.clearCart(userId);
   }
 

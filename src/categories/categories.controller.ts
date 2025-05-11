@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -8,20 +18,32 @@ import { Roles } from 'src/decorators/roles.decorator';
 import { Role } from 'src/enums/role.enum';
 import { Prisma } from 'generated/prisma';
 
-@UseGuards(AuthGuard, RolesGuard)
-@Roles(Role.ADMIN)
 @Controller('categories')
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) { }
+  constructor(private readonly categoriesService: CategoriesService) {}
 
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Post()
   create(@Body() createCategoryDto: CreateCategoryDto) {
     return this.categoriesService.create(createCategoryDto);
   }
 
   @Get()
-  findAll(@Param('skip', ParseIntPipe) skip: number, @Param('take', ParseIntPipe) take: number, @Param('cursor') cursor: Prisma.CategoryWhereUniqueInput, @Param('where') where: Prisma.CategoryWhereInput, orderBy: Prisma.CategoryOrderByWithRelationInput) {
-    return this.categoriesService.findAll({ skip, take, cursor, where, orderBy });
+  findAll(
+    @Param('skip') skip: number = 0,
+    @Param('take') take: number = 10,
+    @Param('cursor') cursor: Prisma.CategoryWhereUniqueInput,
+    @Param('where') where: Prisma.CategoryWhereInput,
+    orderBy: Prisma.CategoryOrderByWithRelationInput,
+  ) {
+    return this.categoriesService.findAll({
+      skip,
+      take,
+      cursor,
+      where,
+      orderBy,
+    });
   }
 
   @Get(':id')
@@ -29,11 +51,18 @@ export class CategoriesController {
     return this.categoriesService.findOne({ id });
   }
 
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Patch(':id')
-  update(@Param('id') id: number, @Body() updateCategoryDto: UpdateCategoryDto) {
+  update(
+    @Param('id') id: number,
+    @Body() updateCategoryDto: UpdateCategoryDto,
+  ) {
     return this.categoriesService.update({ id }, updateCategoryDto);
   }
 
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @Delete(':id')
   remove(@Param('id') id: number) {
     return this.categoriesService.remove({ id });
